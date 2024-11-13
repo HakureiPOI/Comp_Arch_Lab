@@ -23,14 +23,12 @@ _start:
     movb $0, (%rdi)             // 给取后一个字符赋'\0'标志结束
 
 convert_loop:                   // 将整数转换为字符串等待输出
-//    mov %rax, %rdx
     xor %rdx, %rdx
     mov $10, %rcx
     div %rcx                    // rdx = rax % 10, rax = rax / 10
     add $'0', %dl              // 计算对应的ascii码, rdx存器的低8位叫dl存器
     dec %rdi
     mov %dl, (%rdi)             // 结果写内存
-                                // 判断是否结束, TODO: 请添加判断结束的指令
     test %rax, %rax             // 测试rax是否为0
     jnz convert_loop
 
@@ -46,25 +44,26 @@ print_string:                   // 开始输出字符串
     sub %rdi, %rax              // 计算存储的字节数
     mov %rax, %rdx              // 待输出的字节数放入rdx中
 
-    // 系统调用号 (sys_write)     // TODO: 请修复此处的系统调用以正常输出字符串
-    mov $1, %rax                // 设置系统调用号为1，代表sys_write
+    // 系统调用号 (sys_write)
+    mov $1, %rax                // syscall: sys_write
     // 文件描述符 (stdout)
-    mov $1, %rdi                // 文件描述符，为1表示stdout
+    mov $1, %rdi                // file descriptor: stdout
     // 指向字符串的指针
-    mov %rdi, %rsi              // 将rdi中的指针值复制到rsi
+    mov %rdi, %rsi              // correct pointer to buffer
+    lea buffer(%rip), %rsi      // corrected: point to start of buffer
     // 要写入的字节数
     mov %rdx, %rdx
     // 执行系统调用
     syscall
 
     // 打印换行符
-    mov $1, %rax
-    mov $1, %rdi
-    lea newline(%rip), %rsi
-    mov $1, %rdx
+    mov $1, %rax               // syscall: sys_write
+    mov $1, %rdi               // file descriptor: stdout
+    lea newline(%rip), %rsi    // pointer to newline
+    mov $1, %rdx               // number of bytes to write
     syscall
 
     // 退出程序
-    mov $60, %rax  // 系统调用号 (sys_exit)
-    xor %rdi, %rdi // 退出状态码
+    mov $60, %rax              // syscall: sys_exit
+    xor %rdi, %rdi             // exit status 0
     syscall
