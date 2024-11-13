@@ -3,7 +3,7 @@
 .global gemm_kernel;
 .type gemm_kernel, %function;
 
-// 以下是宏定义，方便按逻辑梳理
+// 以下是实现的实例代码
 #define     MAT_C               %rdi
 #define     MAT_A               %rsi
 #define     MAT_B               %r14
@@ -53,7 +53,7 @@
 .endm
 
 .macro GEMM_INIT                                   // 初始化
-    mov %rdx, MAT_B                                 // 将矩阵B的地址存入MAT_B宏对应的寄存器
+    movq MAT_B, %r14  // 将矩阵B的地址存入MAT_B寄存器
     xor loop_m, loop_m
     xor loop_k, loop_k
     xor loop_n, loop_n
@@ -66,23 +66,29 @@ DO_LOOP_K:                                          // 最外层的K维度的循
 DO_LOOP_M:                                          // M维度的循环
     xor loop_n, loop_n                              // 清空N维度的循环计数器
 
-    // 加载A[m][k]
-    lea (MAT_A, loop_m, 4), mat_elem_idx            // 计算A[m][k]的地址
-    flds (mat_elem_idx, loop_k, 4)                  // 加载 A[m][k]到st(0)
+    // 加载A[m][k]到FPU寄存器栈
+    mov mat_elem_idx, loop_m
+    imul mat_elem_idx, DIM_K
+    add mat_elem_idx, loop_k
+    flds (MAT_A, mat_elem_idx, 4)  // 加载 A[m][k] 到栈顶
 
 DO_LOOP_N:
-    // 加载B[k][n]
-    lea (MAT_B, loop_k, 4), mat_elem_idx            // 计算B[k][n]的地址
-    flds (mat_elem_idx, loop_n, 4)                  // 加载 B[k][n]
+    // 加载B[k][n]到FPU寄存器栈
+    mov mat_elem_idx, loop_k
+    imul mat_elem_idx, DIM_N
+    add mat_elem_idx, loop_n
+    flds (MAT_B, mat_elem_idx, 4)  // 加载 B[k][n] 到栈顶
 
     fmul %st(1), %st(0)                             // 计算A[m][k] * B[k][n]
 
-    // 加载C[m][n]
-    lea (MAT_C, loop_m, 4), mat_elem_idx            // 计算C[m][n]的地址
-    flds (mat_elem_idx, loop_n, 4)                  // 加载 C[m][n]
+    // 加载C[m][n]到FPU寄存器栈
+    mov mat_elem_idx, loop_m
+    imul mat_elem_idx, DIM_N
+    add mat_elem_idx, loop_n
+    flds (MAT_C, mat_elem_idx, 4)  // 加载 C[m][n] 到栈顶
 
     faddp %st(1), %st(0)                            // 计算 C[m][n] + A[m][k] * B[k][n]
-    fstps (mat_elem_idx, loop_n, 4)                 // 写回 C[m][n]
+    fstps (MAT_C, mat_elem_idx, 4)                  // 写回 C[m][n]
 
     add $1, loop_n                                  // N维度的循环计数器加1
     cmp DIM_N, loop_n
