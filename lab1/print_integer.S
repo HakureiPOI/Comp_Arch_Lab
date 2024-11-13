@@ -30,6 +30,12 @@ convert_loop:                   // 将整数转换为字符串等待输出
     test %rax, %rax             // 检查rax是否为0
     jnz convert_loop
 
+find_start:                     // 转换结束，跳过字符串前的所有0
+    cmpb $'0', (%rdi)
+    jne print_string
+    inc %rdi
+    jmp find_start
+
 print_string:                   // 开始输出字符串
                                 // 计算字符串长度
     lea buffer+20(%rip), %rax
@@ -41,5 +47,20 @@ print_string:                   // 开始输出字符串
     // 文件描述符 (stdout)
     mov $1, %rdi
     // 指向字符串的指针
-    mov %rsi, %rdi              // 将地址保存到 rsi
-    mov %rsi, %r
+    mov %rdi, %rsi
+    // 要写入的字节数
+    mov %rdx, %rdx
+    // 执行系统调用
+    syscall
+
+    // 打印换行符
+    mov $1, %rax
+    mov $1, %rdi
+    lea newline(%rip), %rsi
+    mov $1, %rdx
+    syscall
+
+    // 退出程序
+    mov $60, %rax  // 系统调用号 (sys_exit)
+    xor %rdi, %rdi // 退出状态码
+    syscall
